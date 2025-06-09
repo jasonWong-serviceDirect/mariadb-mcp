@@ -17,6 +17,35 @@ let pool: mariadb.Pool | null = null;
 let connection: mariadb.PoolConnection | null = null;
 
 /**
+ * Convert BigInt values to strings for JSON serialization
+ * @param obj Object that may contain BigInt values
+ * @returns Object with BigInt values converted to strings
+ */
+function convertBigIntToString(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  
+  if (typeof obj === 'bigint') {
+    return obj.toString();
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(convertBigIntToString);
+  }
+  
+  if (typeof obj === 'object') {
+    const converted: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      converted[key] = convertBigIntToString(value);
+    }
+    return converted;
+  }
+  
+  return obj;
+}
+
+/**
  * Create a MariaDB connection pool with 10.0.38 compatibility settings
  */
 export function createConnectionPool(): mariadb.Pool {
@@ -107,6 +136,9 @@ export async function executeQuery(
         ? rows.slice(0, DEFAULT_ROW_LIMIT)
         : rows;
 
+    // Convert BigInt values to strings for JSON serialization
+    const serializedRows = convertBigIntToString(limitedRows);
+
     // Log result summary
     console.error(
       `[Query] Success: ${
@@ -114,7 +146,7 @@ export async function executeQuery(
       } rows returned with ${JSON.stringify(params)}`
     );
 
-    return { rows: limitedRows, fields };
+    return { rows: serializedRows, fields };
   } catch (error) {
     if (connection) {
       connection.release();
@@ -175,3 +207,6 @@ export function endConnection() {
     return pool.end();
   }
 }
+
+// Export the BigInt conversion utility for use in other files
+export { convertBigIntToString };
