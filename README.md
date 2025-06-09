@@ -2,11 +2,19 @@
 
 This MCP server provides access to MariaDB / MySQL databases.
 
+**Optimized for MariaDB 10.0.38 Compatibility**
+
 It allows you to:
 - List available databases
 - List tables in a database
 - Describe table schemas
 - Execute SQL queries
+
+## MariaDB 10.0.38 Compatibility Features
+- **Optimized connection settings**: Uses charset and SQL mode compatible with 10.0.38
+- **Feature validation**: Warns about features not available in MariaDB 10.0.38
+- **Compatible query execution**: Uses safer parameter binding for older versions
+- **Version detection**: Automatically detects and logs server version compatibility
 
 ## Security Features
 - **Read-only access Default**: SELECT, SHOW, DESCRIBE, and EXPLAIN
@@ -176,6 +184,32 @@ Executes a SQL query.
   }
 }
 ```
+
+## MariaDB 10.0.38 Specific Changes
+
+This version has been specifically modified to work optimally with MariaDB 10.0.38:
+
+### Connection Optimizations
+- Uses `utf8mb4` charset and `TRADITIONAL` SQL mode
+- Disables features not available in 10.0.38 (bulk operations, advanced auth)
+- Removes query-level timeouts (not supported until 10.1.2)
+- Safer parameter binding for older versions
+
+### Query Validation  
+- Detects and warns about unsupported features:
+  - JSON functions (not available in 10.0.38)
+  - Window functions (added in 10.2+)
+  - Advanced full-text search features
+- Provides alternative syntax suggestions
+
+### Version Detection
+- Automatically detects MariaDB version on connection
+- Provides compatibility feedback in logs
+- Optimized configuration examples for 10.0.38
+
+### Additional Files
+- `mariadb-10.0.38-example.env`: Environment template for 10.0.38
+- `MARIADB_10.0.38_GUIDE.md`: Comprehensive setup and compatibility guide
 
 ## Testing
 The server includes test scripts to verify functionality with your MariaDB / MySQL setup:

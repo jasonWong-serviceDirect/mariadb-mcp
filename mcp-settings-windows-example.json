@@ -2,7 +2,7 @@
   "mcpServers": {
     "mariadb-10.0.38": {
       "command": "node",
-      "args": ["/absolute/path/to/mariadb-mcp-server/dist/index.js"],
+      "args": ["C:/Users/Jason/PhpstormProjects/mariadb-mcp-server/dist/index.js"],
       "env": {
         "MARIADB_HOST": "localhost",
         "MARIADB_PORT": "3306",
@@ -18,7 +18,7 @@
       },
       "disabled": false,
       "autoApprove": [],
-      "_comment": "Optimized configuration for MariaDB 10.0.38 compatibility"
+      "_comment": "Windows-specific configuration for Jason's mariadb-mcp-server setup"
     }
   }
-}
+} 

@@ -1,19 +1,24 @@
 /**
  * SQL query validators for MariaDB MCP server
  * Ensures that only read-only queries are allowed
+ * Optimized for MariaDB 10.0.38 compatibility
  */
 
-// List of allowed SQL commands
-const ALLOWED_COMMANDS = [
+// Base list of SQL commands that could be allowed
+const BASE_ALLOWED_COMMANDS = [
   "SELECT",
   "SHOW",
   "DESCRIBE",
   "DESC",
   "EXPLAIN",
-  "INSERT",
-  "UPDATE",
-  "DELETE",
 ];
+
+// Write operations that can be conditionally allowed
+const CONDITIONAL_COMMANDS = {
+  INSERT: "INSERT",
+  UPDATE: "UPDATE", 
+  DELETE: "DELETE",
+};
 
 // List of disallowed SQL commands (write operations)
 const DISALLOWED_COMMANDS = [
@@ -30,12 +35,49 @@ const DISALLOWED_COMMANDS = [
   "CALL",
   "EXEC",
   "EXECUTE",
-  "SET",
   "START",
   "BEGIN",
   "COMMIT",
   "ROLLBACK",
 ];
+
+// Features introduced after MariaDB 10.0.38 that should be avoided
+const MARIADB_10_0_UNSUPPORTED_FEATURES = [
+  "JSON_EXTRACT",
+  "JSON_UNQUOTE", 
+  "JSON_OBJECT",
+  "JSON_ARRAY",
+  "JSON_VALID",
+  "JSON_TYPE",
+  "JSON_COMPACT",
+  "JSON_LOOSE",
+  "JSON_DETAILED",
+  "MATCH.*AGAINST.*IN NATURAL LANGUAGE MODE WITH QUERY EXPANSION",
+  "WINDOW FUNCTION",
+  "OVER\\s*\\(",
+  "ROW_NUMBER\\s*\\(",
+  "RANK\\s*\\(",
+  "DENSE_RANK\\s*\\(",
+  "PARTITION BY",
+];
+
+/**
+ * Check if query uses features not available in MariaDB 10.0.38
+ * @param query SQL query to check
+ * @returns warning message if unsupported features detected, null otherwise
+ */
+function checkMariaDB10_0_Compatibility(query: string): string | null {
+  const normalizedQuery = query.toUpperCase();
+  
+  for (const feature of MARIADB_10_0_UNSUPPORTED_FEATURES) {
+    const regex = new RegExp(feature, 'i');
+    if (regex.test(normalizedQuery)) {
+      return `Warning: The query contains '${feature}' which may not be supported in MariaDB 10.0.38. Consider using alternative syntax.`;
+    }
+  }
+  
+  return null;
+}
 
 /**
  * Validates if a SQL query is read-only
@@ -50,27 +92,36 @@ export function isAlloowedQuery(query: string): boolean {
     .replace(/\s+/g, " ") // Normalize whitespace
     .trim()
     .toUpperCase();
+    
   const ALLOW_INSERT = process.env.MARIADB_ALLOW_INSERT === "true";
   const ALLOW_UPDATE = process.env.MARIADB_ALLOW_UPDATE === "true";
   const ALLOW_DELETE = process.env.MARIADB_ALLOW_DELETE === "true";
 
+  // Build dynamic allowed commands list based on environment variables
+  const allowedCommands = [...BASE_ALLOWED_COMMANDS];
+  if (ALLOW_INSERT) {
+    allowedCommands.push(CONDITIONAL_COMMANDS.INSERT);
+  }
+  if (ALLOW_UPDATE) {
+    allowedCommands.push(CONDITIONAL_COMMANDS.UPDATE);
+  }
+  if (ALLOW_DELETE) {
+    allowedCommands.push(CONDITIONAL_COMMANDS.DELETE);
+  }
+
+  // Check for MariaDB 10.0.38 compatibility
+  const compatibilityWarning = checkMariaDB10_0_Compatibility(query);
+  if (compatibilityWarning) {
+    console.error(`[Validator] ${compatibilityWarning}`);
+  }
+
   // Check if query starts with an allowed command
-  const startsWithAllowed = ALLOWED_COMMANDS.some(
+  const startsWithAllowed = allowedCommands.some(
     (cmd) => normalizedQuery.startsWith(cmd + " ") || normalizedQuery === cmd
   );
-  const startsWithAllowedNoSpace =
-    normalizedQuery.startsWith("INSERT") && !ALLOW_INSERT;
+
   // Check if query contains any disallowed commands
   const containsDisallowed = DISALLOWED_COMMANDS.some((cmd) => {
-    if (cmd === "INSERT" && !ALLOW_INSERT) {
-      return false; // Skip INSERT if not allowed
-    }
-    if (cmd === "UPDATE" && !ALLOW_UPDATE) {
-      return false; // Skip UPDATE if not allowed
-    }
-    if (cmd === "DELETE" && !ALLOW_DELETE) {
-      return false; // Skip DELETE if not allowed
-    }
     const regex = new RegExp(`(^|\\s)${cmd}(\\s|$)`);
     return regex.test(normalizedQuery);
   });
@@ -79,18 +130,38 @@ export function isAlloowedQuery(query: string): boolean {
   const hasMultipleStatements =
     normalizedQuery.includes(";") && !normalizedQuery.endsWith(";");
 
-  // Query is read-only if it starts with an allowed command,
+  // Debug output for UPDATE queries
+  if (normalizedQuery.startsWith("UPDATE")) {
+    console.error(`[DEBUG] UPDATE Query Analysis:`);
+    console.error(`[DEBUG] Normalized query: "${normalizedQuery}"`);
+    console.error(`[DEBUG] Allowed commands: ${JSON.stringify(allowedCommands)}`);
+    console.error(`[DEBUG] Starts with allowed: ${startsWithAllowed}`);
+    console.error(`[DEBUG] Contains disallowed: ${containsDisallowed}`);
+    console.error(`[DEBUG] Has multiple statements: ${hasMultipleStatements}`);
+    
+    // Check each disallowed command individually
+    for (const cmd of DISALLOWED_COMMANDS) {
+      const regex = new RegExp(`(^|\\s)${cmd}(\\s|$)`);
+      if (regex.test(normalizedQuery)) {
+        console.error(`[DEBUG] Found disallowed command: ${cmd}`);
+      }
+    }
+  }
+
+  const result = startsWithAllowed && !containsDisallowed && !hasMultipleStatements;
+
+  // Query is allowed if it starts with an allowed command,
   // doesn't contain any disallowed commands, and doesn't have multiple statements
-  return startsWithAllowed && !containsDisallowed && !hasMultipleStatements;
+  return result;
 }
 
 /**
- * Validates if a SQL query is safe to execute
+ * Validates if a SQL query is safe to execute on MariaDB 10.0.38
  * @param query SQL query to validate
  * @throws Error if the query is not safe
  */
 export function validateQuery(query: string): void {
-  console.error("[Validator] Validating query:", query);
+  console.error("[Validator] Validating query for MariaDB 10.0.38:", query);
 
   if (!query || typeof query !== "string") {
     throw new Error("Query must be a non-empty string");
@@ -103,5 +174,5 @@ export function validateQuery(query: string): void {
     );
   }
 
-  console.error("[Validator] Query validated");
+  console.error("[Validator] Query validated for MariaDB 10.0.38");
 }

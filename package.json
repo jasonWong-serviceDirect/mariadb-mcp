@@ -1,7 +1,7 @@
 {
   "name": "mariadb-mcp-server",
   "version": "0.0.1",
-  "description": "An MCP server that provides access to MariaDB ou MySQL databases.",
+  "description": "An MCP server that provides access to MariaDB ou MySQL databases. Optimized for MariaDB 10.0.38 compatibility.",
   "type": "module",
   "bin": {
     "mysql-mcp-server": "dist/index.js"

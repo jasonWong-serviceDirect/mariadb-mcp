@@ -2,6 +2,7 @@
 
 /**
  * MariaDB Database Access MCP Server
+ * Optimized for MariaDB 10.0.38 compatibility
  *
  * This MCP server provides access to MariaDB databases.
  * It allows:
@@ -9,6 +10,11 @@
  * - Listing tables in a database
  * - Describing table schemas
  * - Executing read-only SQL queries
+ * 
+ * Features optimized for MariaDB 10.0.38:
+ * - Uses compatible connection settings
+ * - Validates against unsupported newer features
+ * - Provides compatibility warnings
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -25,6 +31,28 @@ import {
   executeQuery,
   endConnection,
 } from "./connection.js";
+
+/**
+ * Check MariaDB server version for compatibility warnings
+ */
+async function checkServerCompatibility(): Promise<void> {
+  try {
+    const { rows } = await executeQuery("SELECT VERSION() as version");
+    const version = rows[0]?.version || '';
+    console.error(`[Setup] Connected to MariaDB version: ${version}`);
+    
+    // Check if it's MariaDB 10.0.x
+    if (version.includes('MariaDB') && version.includes('10.0.')) {
+      console.error(`[Setup] ✓ Detected MariaDB 10.0.x - Server is compatible`);
+    } else if (version.includes('MariaDB')) {
+      console.error(`[Setup] ⚠ Detected MariaDB ${version} - This server is optimized for 10.0.38 but should work with other versions`);
+    } else {
+      console.error(`[Setup] ⚠ Detected MySQL ${version} - This server is optimized for MariaDB 10.0.38 but should work with MySQL`);
+    }
+  } catch (error) {
+    console.error(`[Setup] ⚠ Could not determine server version: ${error}`);
+  }
+}
 
 /**
  * Create an MCP server with tools for MariaDB database access
@@ -123,6 +151,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     createConnectionPool();
+    // Check server version compatibility on first connection
+    await checkServerCompatibility();
   } catch (error) {
     console.error("[Fatal] Failed to initialize MariaDB connection:", error);
     process.exit(1);

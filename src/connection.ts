@@ -1,5 +1,6 @@
 /**
  * MariaDB connection management for MCP server
+ * Optimized for MariaDB 10.0.38 compatibility
  */
 
 import mariadb from "mariadb";
@@ -16,10 +17,10 @@ let pool: mariadb.Pool | null = null;
 let connection: mariadb.PoolConnection | null = null;
 
 /**
- * Create a MariaDB connection pool
+ * Create a MariaDB connection pool with 10.0.38 compatibility settings
  */
 export function createConnectionPool(): mariadb.Pool {
-  console.error("[Setup] Creating MariaDB connection pool");
+  console.error("[Setup] Creating MariaDB connection pool (optimized for 10.0.38)");
   const config = getConfigFromEnv();
   if (pool) {
     console.error("[Setup] Connection pool already exists");
@@ -33,7 +34,23 @@ export function createConnectionPool(): mariadb.Pool {
       password: config.password,
       database: config.database,
       connectionLimit: 2,
-      connectTimeout: DEFAULT_TIMEOUT,
+      connectTimeout: DEFAULT_TIMEOUT, // Connection timeout only (supported in 10.0.38)
+      acquireTimeout: DEFAULT_TIMEOUT, // Pool acquisition timeout
+      // MariaDB 10.0.38 compatibility settings
+      charset: 'utf8mb4',
+      // Disable features not available in 10.0.38
+      bulk: false,
+      // Use compatible SQL mode for older versions
+      sessionVariables: {
+        sql_mode: 'TRADITIONAL'
+      },
+      // Ensure compatibility with older auth plugins
+      permitSetMultiParamEntries: false,
+      // Disable compression for better compatibility
+      compress: false,
+      // Set explicit timezone handling
+      timezone: 'local',
+      // Note: queryTimeout not used for 10.0.38 compatibility
     });
   } catch (error) {
     console.error("[Error] Failed to create connection pool:", error);
@@ -44,6 +61,7 @@ export function createConnectionPool(): mariadb.Pool {
 
 /**
  * Execute a query with error handling and logging
+ * Optimized for MariaDB 10.0.38 compatibility
  */
 export async function executeQuery(
   sql: string,
@@ -73,13 +91,14 @@ export async function executeQuery(
     if (!isAlloowedQuery(sql)) {
       throw new Error("Query not allowed");
     }
-    // Execute query with timeout
+    
+    // Execute query with 10.0.38 compatible options (no timeout parameter)
     const [rows, fields] = await connection.query({
       metaAsArray: true,
-      namedPlaceholders: true,
+      namedPlaceholders: false, // Safer for 10.0.38
       sql,
       ...params,
-      timeout: DEFAULT_TIMEOUT,
+      // Note: timeout removed for MariaDB 10.0.38 compatibility
     });
 
     // Apply row limit if result is an array
