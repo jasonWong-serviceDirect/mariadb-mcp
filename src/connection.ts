@@ -14,7 +14,6 @@ const DEFAULT_TIMEOUT = 10000;
 const DEFAULT_ROW_LIMIT = 1000;
 
 let pool: mariadb.Pool | null = null;
-let connection: mariadb.PoolConnection | null = null;
 
 /**
  * Convert BigInt values to strings for JSON serialization
@@ -103,14 +102,11 @@ export async function executeQuery(
     console.error("[Setup] Connection pool not found, creating a new one");
     pool = createConnectionPool();
   }
+  let connection: mariadb.PoolConnection | null = null;
   try {
-    // Get connection from pool
-    if (connection) {
-      console.error("[Query] Reusing existing connection");
-    } else {
-      console.error("[Query] Creating new connection");
-      connection = await pool.getConnection();
-    }
+    // Always get a fresh connection from pool
+    console.error("[Query] Getting connection from pool");
+    connection = await pool.getConnection();
 
     // Use specific database if provided
     if (database) {
@@ -150,7 +146,6 @@ export async function executeQuery(
   } catch (error) {
     if (connection) {
       connection.release();
-      connection = null;
       console.error("[Query] Connection released with error");
     }
     console.error("[Error] Query execution failed:", error);
@@ -159,7 +154,6 @@ export async function executeQuery(
     // Release connection back to pool
     if (connection) {
       connection.release();
-      connection = null;
       console.error("[Query] Connection released");
     }
   }
