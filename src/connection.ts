@@ -150,6 +150,7 @@ export async function executeQuery(
   } catch (error) {
     if (connection) {
       connection.release();
+      connection = null;
       console.error("[Query] Connection released with error");
     }
     console.error("[Error] Query execution failed:", error);
@@ -158,6 +159,7 @@ export async function executeQuery(
     // Release connection back to pool
     if (connection) {
       connection.release();
+      connection = null;
       console.error("[Query] Connection released");
     }
   }
